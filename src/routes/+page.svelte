@@ -5,24 +5,24 @@
 	import { onMount } from 'svelte';
 	import toast from 'svelte-french-toast';
 
-	const colors = {
-		red: '#ff0000',
-		green: '#00ff00',
-		blue: '#0000ff',
-		yellow: '#ffff00',
-		orange: '#ff7f00',
-		purple: '#7f00ff',
-		cyan: '#00ffff',
-		white: '#ffffff',
-		black: '#000000',
-		gray: '#7f7f7f'
-	};
+	const colors = [
+		'#ff0000',
+		'#00ff00',
+		'#0000ff',
+		'#ffff00',
+		'#ff7f00',
+		'#7f00ff',
+		'#00ffff',
+		'#ffffff',
+		'#000000',
+		'#7f7f7f'
+	];
 
-	type Color = keyof typeof colors;
+	type Color = string;
+
 	let selectedPixels = new Map<string, Color>();
-	
 
-	let selectedColor: Color = 'black';
+	let selectedColor = colors[0];
 
 	function selectColor(color: Color) {
 		selectedColor = color;
@@ -30,7 +30,7 @@
 
 	function onHover(e: MouseEvent) {
 		const target = e.target as HTMLButtonElement;
-		target.style.backgroundColor = colors[selectedColor];
+		target.style.backgroundColor = selectedColor
 	}
 
 	function onBlur(e: MouseEvent) {
@@ -101,11 +101,11 @@
 	{/each}
 
 	<div class="mt-10">
-		{#each TypedObject.entries(colors) as [colorKey, colorValue]}
+		{#each colors as color}
 			<button
 				class="h-6 w-6 border-2 border-black"
-				style="background-color: {colorValue}"
-				on:click={() => selectColor(colorKey)}
+				style="background-color: {color}"
+				on:click={() => selectColor(color)}
 			/>
 		{/each}
 	</div>

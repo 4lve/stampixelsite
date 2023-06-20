@@ -16,12 +16,16 @@ export default async function injectSocketIO(server: http.Server) {
 		server
 	);
 
-	
-
 	const setPixelSchema = z.object({
 		x: z.number().min(0).max(31).int(),
 		y: z.number().min(0).max(31).int(),
-		color: z.string()
+		color: z
+			.string()
+			.startsWith('#')
+			.max(7)
+			.min(7)
+			.regex(/^#[0-9a-f]{6}$/i)
+			.toUpperCase()
 	});
 
 	const Pixels = new Map<string, string>();
@@ -32,38 +36,6 @@ export default async function injectSocketIO(server: http.Server) {
 			coordinates.push({ x, y });
 		}
 	}
-
-	const oneDayAgo = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
-
-	prisma.placement
-		.groupBy({
-			by: ['x', 'y'],
-			where: {
-				x: { in: Array.from({ length: 32 }, (_, i) => i) },
-				y: { in: Array.from({ length: 32 }, (_, i) => i) },
-				createdAt: {
-					gte: oneDayAgo
-				}
-			},
-			_max: {
-				color: true,
-				createdAt: true
-			},
-			orderBy: {
-				_max: {
-					createdAt: 'desc'
-				}
-			}
-		})
-		.then((placements) => {
-			placements.forEach((placement) => {
-				const key = `${placement.x},${placement.y}`;
-				if (!Pixels.has(key)) Pixels.set(key, placement._max.color || 'white');
-			});
-
-			console.log('Done');
-			io.emit('setBoard', Object.fromEntries(Pixels));
-		});
 
 	io.on('connection', async (socket) => {
 		socket.data.session = null;
@@ -82,24 +54,15 @@ export default async function injectSocketIO(server: http.Server) {
 				)
 					return;
 
-				const existing = await prisma.user.findUnique({
+				const user = await prisma.user.findUnique({
 					where: {
 						email: socket.data.session.user.email
 					}
 				});
 
-				if (!existing) {
-					await prisma.user.create({
-						data: {
-							email: socket.data.session.user.email,
-							name: socket.data.session.user.name,
-							image: socket.data.session.user.image
-						}
-					});
-					return;
-				}
+				if (!user) return;
 
-				socket.emit('balance', existing.balance);
+				socket.emit('balance', user.pixels);
 			});
 
 		socket.emit('setBoard', Object.fromEntries(Pixels));
@@ -124,18 +87,18 @@ export default async function injectSocketIO(server: http.Server) {
 							email: socket.data.session!.user!.email!
 						},
 						data: {
-							balance: {
+							pixels: {
 								decrement: 1
 							}
 						}
 					});
 
 					// 2. Verify that the sender's balance didn't go below zero.
-					if (spender.balance < 0) {
+					if (spender.pixels < 0) {
 						throw new Error(`${spender} doesn't have enough pixels`);
 					}
 
-					const pixelPlacement = await tx.placement.create({
+					const pixelPlacement = await tx.pixel.create({
 						data: {
 							color: data.color,
 							x: data.x,
@@ -152,7 +115,7 @@ export default async function injectSocketIO(server: http.Server) {
 				});
 
 				Pixels.set(`${data.x},${data.y}`, data.color);
-				socket.emit('balance', spender.balance);
+				socket.emit('balance', spender.pixels);
 				io.emit('setPixel', data);
 				callback('Pixel placed', true);
 			} catch (error) {

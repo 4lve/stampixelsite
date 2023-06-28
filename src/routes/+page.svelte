@@ -4,6 +4,35 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import toast from 'svelte-french-toast';
+	import { writable } from 'svelte/store';
+
+	import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom';
+	import { select as d3Select } from 'd3-selection';
+	import { browser } from '$app/environment';
+
+	let pixelBoard: HTMLDivElement;
+
+	const zoomStore = writable({ x: 0, y: 50, k: 1 });
+
+	onMount(() => {
+		const svg = d3Select(pixelBoard);
+		const zoomBehavior = d3Zoom()
+			.scaleExtent([1, 10])
+			.on('zoom', ({ transform }) => {
+				zoomStore.set({
+					x: transform.x,
+					y: transform.y,
+					k: transform.k
+				});
+			});
+
+		const initialX = (pixelBoard.parentElement!.parentElement!.clientWidth - 192) / 4;
+		const initialY = (pixelBoard.parentElement!.parentElement!.clientHeight - 192) / 20;
+
+		svg
+			.call(zoomBehavior as any)
+			.call(zoomBehavior.transform as any, zoomIdentity.translate(-initialX, initialY));
+	});
 
 	const colors = [
 		'#ff0000',
@@ -24,16 +53,12 @@
 
 	let selectedColor = colors[0];
 
-	function selectColor(color: Color) {
-		selectedColor = color;
-	}
-
-	function onHover(e: MouseEvent) {
+	function onHover(e: MouseEvent | FocusEvent) {
 		const target = e.target as HTMLButtonElement;
-		target.style.backgroundColor = selectedColor
+		target.style.backgroundColor = selectedColor;
 	}
 
-	function onBlur(e: MouseEvent) {
+	function onBlur(e: MouseEvent | FocusEvent) {
 		const target = e.target as HTMLButtonElement;
 		target.style.backgroundColor = selectedPixels.get(target.id) ?? 'transparent';
 	}
@@ -48,15 +73,13 @@
 		});
 	}
 
-	socket.on('setPixel', (pixel) => {
-		selectedPixels.set(`${pixel.x},${pixel.y}`, pixel.color as Color);
-		selectedPixels = selectedPixels;
-	});
+	//Socket events
 
 	let balance = 0;
 
-	socket.on('balance', (newBalance) => {
-		balance = newBalance;
+	socket.on('setPixel', (pixel) => {
+		selectedPixels.set(`${pixel.x},${pixel.y}`, pixel.color as Color);
+		selectedPixels = selectedPixels;
 	});
 
 	socket.on('setBoard', (board) => {
@@ -66,53 +89,90 @@
 		selectedPixels = selectedPixels;
 	});
 
-	type Entries<T> = {
-		[K in keyof T]: [K, T[K]];
-	}[keyof T][];
-
-	class TypedObject {
-		static entries<T extends object>(obj: T) {
-			return Object.entries(obj) as Entries<T>;
-		}
-	}
+	socket.on('balance', (newBalance) => {
+		balance = newBalance;
+	});
 </script>
 
-{#if $page.data.session?.user}
-	<button on:click={signOut}>Logga ut</button>
-	<p>Logged in as {$page.data.session.user.name}</p>
-	<p>Balance {balance}</p>
-{:else}
-	<button on:click={() => signIn('twitch')}>Logga in</button>
-{/if}
-<div class="flex items-center justify-center flex-col w-screen h-screen">
-	{#each Array(32) as _, y}
-		<div class="m-0 flex flex-row">
-			{#each Array(32) as _, x}
-				<button
-					class="h-6 w-6 border-[1px] border-black"
-					id={`${x},${y}`}
-					style={`background-color: ${selectedPixels.get(`${x},${y}`) || 'transparent'};`}
-					on:mouseleave={onBlur}
-					on:mouseenter={onHover}
-					on:click={() => setPixel(x, y)}
-				/>
-			{/each}
-		</div>
-	{/each}
+<nav class="flex justify-between items-center p-2 bg-blue-500 text-white z-20 relative">
+	<div>
+		{#if $page.data.session?.user}
+			<button
+				class="btn bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+				on:click={signOut}>Logga ut</button
+			>
+		{:else}
+			<button
+				class="btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+				on:click={() => signIn('twitch')}>Logga in med Twitch</button
+			>
+		{/if}
+	</div>
 
-	<div class="mt-10">
+	<div>
+		{#if $page.data.session?.user}
+			<p class="font-bold">Antal Pixlar: {balance}</p>
+		{/if}
+	</div>
+
+	<div>
+		{#if $page.data.session?.user}
+			<p class="font-bold">Inloggad som: {$page.data.session.user.name}</p>
+		{/if}
+	</div>
+</nav>
+
+<div
+	class="flex justify-center w-screen h-[calc(100svh-56px)] overflow-hidden"
+	bind:this={pixelBoard}
+>
+	<div class="p-2 pb-1 bg-gray-700 rounded-md absolute bottom-5 z-20">
 		{#each colors as color}
 			<button
-				class="h-6 w-6 border-2 border-black"
-				style="background-color: {color}"
-				on:click={() => selectColor(color)}
+				on:click={() => {
+					selectedColor = color;
+				}}
+				style="background-color: {color}; outline-color: {selectedColor === color
+					? 'white'
+					: 'black'}"
+				class="w-8 h-8 mx-1 outline-dotted rounded"
 			/>
 		{/each}
+	</div>
+	<div class="absolute">
+		<div
+			id="pixel-board"
+			class="absolute"
+			style="
+						transform: 
+							translate({$zoomStore.x}px, {$zoomStore.y}px) 
+							scale({$zoomStore.k})
+					"
+		>
+			{#each Array(64) as _, y}
+				<div class="flex">
+					{#each Array(64) as _, x}
+						<button
+							on:click={() => setPixel(x, y)}
+							on:mouseover={onHover}
+							on:focus={onHover}
+							on:mouseout={onBlur}
+							on:blur={onBlur}
+							id="{x},{y}"
+							style="background-color: {selectedPixels.get(`${x},${y}`) ?? 'transparent'}"
+							class="w-3 h-3 border-[1px] border-black {x !== 0 && 'border-l-0'} {y !== 0 &&
+								'border-t-0'}"
+						/>
+					{/each}
+				</div>
+			{/each}
+		</div>
 	</div>
 </div>
 
 <style>
 	:global(html) {
-		background-color: #363636;
+		background-color: #fff;
+		overflow: hidden;
 	}
 </style>

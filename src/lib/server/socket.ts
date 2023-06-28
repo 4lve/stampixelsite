@@ -17,8 +17,8 @@ export default async function injectSocketIO(server: http.Server) {
 	);
 
 	const setPixelSchema = z.object({
-		x: z.number().min(0).max(31).int(),
-		y: z.number().min(0).max(31).int(),
+		x: z.number().min(0).max(63).int(),
+		y: z.number().min(0).max(63).int(),
 		color: z
 			.string()
 			.startsWith('#')
@@ -31,8 +31,8 @@ export default async function injectSocketIO(server: http.Server) {
 	const Pixels = new Map<string, string>();
 
 	const coordinates = [];
-	for (let x = 0; x < 32; x++) {
-		for (let y = 0; y < 32; y++) {
+	for (let x = 0; x < 64; x++) {
+		for (let y = 0; y < 64; y++) {
 			coordinates.push({ x, y });
 		}
 	}
@@ -78,6 +78,9 @@ export default async function injectSocketIO(server: http.Server) {
 				return;
 
 			const data = tmpData.data;
+
+			if (Pixels.get(`${data.x},${data.y}`) === data.color)
+				return callback('Pixel already placed', false);
 
 			try {
 				const [pixelPlacement, spender] = await prisma.$transaction(async (tx) => {

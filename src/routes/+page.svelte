@@ -6,32 +6,36 @@
 	import toast from 'svelte-french-toast';
 	import { writable } from 'svelte/store';
 
-	import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom';
+	import { zoom as d3Zoom } from 'd3-zoom';
 	import { select as d3Select } from 'd3-selection';
-	import { browser } from '$app/environment';
+	import { zoomIdentity } from 'd3-zoom';
 
 	let pixelBoard: HTMLDivElement;
 
-	const zoomStore = writable({ x: 0, y: 50, k: 1 });
+	const zoomStore = writable({ x: 0, y: 0, k: 1 });
 
 	onMount(() => {
-		const svg = d3Select(pixelBoard);
+		const div = d3Select(pixelBoard);
+
 		const zoomBehavior = d3Zoom()
 			.scaleExtent([1, 10])
 			.on('zoom', ({ transform }) => {
+				const newX = transform.x - pixelBoard.clientWidth / 2;
+				const newY = transform.y - pixelBoard.clientHeight / 2;
+
 				zoomStore.set({
-					x: transform.x,
-					y: transform.y,
+					x: newX,
+					y: newY,
 					k: transform.k
 				});
 			});
 
-		const initialX = (pixelBoard.parentElement!.parentElement!.clientWidth - 192) / 4;
-		const initialY = (pixelBoard.parentElement!.parentElement!.clientHeight - 192) / 20;
+		div.call(zoomBehavior as any);
 
-		svg
-			.call(zoomBehavior as any)
-			.call(zoomBehavior.transform as any, zoomIdentity.translate(-initialX, initialY));
+		const initialTransform = zoomIdentity
+			.translate(pixelBoard.clientWidth / 2, pixelBoard.clientHeight / 2)
+			.scale(1);
+		div.call((zoomBehavior as any).transform, initialTransform);
 	});
 
 	const colors = [
@@ -139,34 +143,30 @@
 			/>
 		{/each}
 	</div>
-	<div class="absolute">
-		<div
-			id="pixel-board"
-			class="absolute"
-			style="
+	<div
+		style="
 						transform: 
 							translate({$zoomStore.x}px, {$zoomStore.y}px) 
 							scale({$zoomStore.k})
 					"
-		>
-			{#each Array(64) as _, y}
-				<div class="flex">
-					{#each Array(64) as _, x}
-						<button
-							on:click={() => setPixel(x, y)}
-							on:mouseover={onHover}
-							on:focus={onHover}
-							on:mouseout={onBlur}
-							on:blur={onBlur}
-							id="{x},{y}"
-							style="background-color: {selectedPixels.get(`${x},${y}`) ?? 'transparent'}"
-							class="w-3 h-3 border-[1px] border-black {x !== 0 && 'border-l-0'} {y !== 0 &&
-								'border-t-0'}"
-						/>
-					{/each}
-				</div>
-			{/each}
-		</div>
+	>
+		{#each Array(64) as _, y}
+			<div class="flex">
+				{#each Array(64) as _, x}
+					<button
+						on:click={() => setPixel(x, y)}
+						on:mouseover={onHover}
+						on:focus={onHover}
+						on:mouseout={onBlur}
+						on:blur={onBlur}
+						id="{x},{y}"
+						style="background-color: {selectedPixels.get(`${x},${y}`) ?? 'transparent'}"
+						class="w-3 h-3 border-[1px] border-black {x !== 0 && 'border-l-0'} {y !== 0 &&
+							'border-t-0'}"
+					/>
+				{/each}
+			</div>
+		{/each}
 	</div>
 </div>
 

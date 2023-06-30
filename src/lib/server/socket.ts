@@ -80,7 +80,7 @@ export default async function injectSocketIO(server: http.Server) {
 			const data = tmpData.data;
 
 			if (Pixels.get(`${data.x},${data.y}`) === data.color)
-				return callback('Pixel already placed', false);
+				return callback('En pixel med samma färg är redan där!', false);
 
 			try {
 				const [pixelPlacement, spender] = await prisma.$transaction(async (tx) => {
@@ -120,10 +120,10 @@ export default async function injectSocketIO(server: http.Server) {
 				Pixels.set(`${data.x},${data.y}`, data.color);
 				socket.emit('balance', spender.pixels);
 				io.emit('setPixel', data);
-				callback('Pixel placed', true);
+				callback('Placerade pixlen', true);
 			} catch (error) {
 				console.error(error);
-				callback('Not enough balance', false);
+				callback('Du har inte tillräckligt med pixlar. Du kan köpa mer med kanalpoäng när Stamsite streamar på twitch', false);
 			}
 		});
 

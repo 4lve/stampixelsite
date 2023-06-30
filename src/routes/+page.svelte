@@ -18,7 +18,7 @@
 		const div = d3Select(pixelBoard);
 
 		const zoomBehavior = d3Zoom()
-			.scaleExtent([1, 10])
+			.scaleExtent([0.4, 10])
 			.on('zoom', ({ transform }) => {
 				const newX = transform.x - pixelBoard.clientWidth / 2;
 				const newY = transform.y - pixelBoard.clientHeight / 2;
@@ -58,21 +58,34 @@
 	let selectedColor = colors[0];
 
 	function onHover(e: MouseEvent | FocusEvent) {
+		if (window.matchMedia('(pointer: coarse)').matches) return;
 		const target = e.target as HTMLButtonElement;
 		target.style.backgroundColor = selectedColor;
 	}
 
 	function onBlur(e: MouseEvent | FocusEvent) {
+		if (window.matchMedia('(pointer: coarse)').matches) return;
 		const target = e.target as HTMLButtonElement;
 		target.style.backgroundColor = selectedPixels.get(target.id) ?? 'transparent';
 	}
 
 	function setPixel(x: number, y: number) {
+		if (!$page.data.session?.user) {
+			toast.error('Du måste logga in för att kunna sätta ut pixlar.', {
+				position: 'bottom-right'
+			});
+			return;
+		}
+
 		socket.emit('setPixel', { x, y, color: selectedColor }, (message, success) => {
 			if (success) {
-				toast.success(message);
+				toast.success(message, {
+					position: 'bottom-right'
+				});
 			} else {
-				toast.error(message);
+				toast.error(message, {
+					position: 'bottom-right'
+				});
 			}
 		});
 	}
@@ -107,7 +120,7 @@
 			>
 		{:else}
 			<button
-				class="btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+				class="btn bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
 				on:click={() => signIn('twitch')}>Logga in med Twitch</button
 			>
 		{/if}

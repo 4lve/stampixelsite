@@ -30,10 +30,31 @@ export default async function injectSocketIO(server: http.Server) {
 
 	const Pixels = new Map<string, string>();
 
-	const coordinates = [];
 	for (let x = 0; x < 64; x++) {
 		for (let y = 0; y < 64; y++) {
-			coordinates.push({ x, y });
+			(async () => {
+				console.log(`Loading pixel ${x},${y}`);
+				const pixel = await prisma.pixel.findFirst({
+					where: {
+						x,
+						y
+					},
+					select: {
+						color: true
+					},
+					orderBy: {
+						createdAt: 'desc'
+					}
+				});
+				console.log(`Loaded pixel ${x},${y}`);
+
+				Pixels.set(`${x},${y}`, pixel?.color ?? '#000000');
+				io.emit('setPixel', {
+					x,
+					y,
+					color: pixel?.color ?? '#000000'
+				});
+			})();
 		}
 	}
 
@@ -123,7 +144,10 @@ export default async function injectSocketIO(server: http.Server) {
 				callback('Placerade pixlen', true);
 			} catch (error) {
 				console.error(error);
-				callback('Du har inte tillräckligt med pixlar. Du kan köpa mer med kanalpoäng när Stamsite streamar på twitch', false);
+				callback(
+					'Du har inte tillräckligt med pixlar. Du kan köpa mer med kanalpoäng när Stamsite streamar på twitch',
+					false
+				);
 			}
 		});
 

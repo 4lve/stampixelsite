@@ -12,6 +12,7 @@
 
 	let pixelBoard: HTMLDivElement;
 
+	let creditsOpen = false;
 	const zoomStore = writable({ x: 0, y: 0, k: 1 });
 
 	onMount(() => {
@@ -28,9 +29,18 @@
 					y: newY,
 					k: transform.k
 				});
+			})
+			.filter(function filter(event) {
+				return (
+					(!event.ctrlKey || event.type === 'wheel') && (event.button === 0 || event.button === 2)
+				);
 			});
 
-		div.call(zoomBehavior as any);
+		div.on('contextmenu', function (event) {
+			event.preventDefault();
+		});
+
+		div.call(zoomBehavior as any).on('dblclick.zoom', null);
 
 		const initialTransform = zoomIdentity
 			.translate(pixelBoard.clientWidth / 2, pixelBoard.clientHeight / 2)
@@ -66,7 +76,7 @@
 	function onBlur(e: MouseEvent | FocusEvent) {
 		if (window.matchMedia('(pointer: coarse)').matches) return;
 		const target = e.target as HTMLButtonElement;
-		target.style.backgroundColor = selectedPixels.get(target.id) ?? 'transparent';
+		target.style.backgroundColor = selectedPixels.get(target.id) ?? 'black';
 	}
 
 	function setPixel(x: number, y: number) {
@@ -139,10 +149,85 @@
 	</div>
 </nav>
 
+{#if creditsOpen}
+	<div
+		class="fixed z-10 inset-0 overflow-y-auto"
+		style="display: grid; place-items: center; background-color: rgba(0, 0, 0, 0.5);"
+	>
+		<div
+			class="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="modal-headline"
+		>
+			<div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+				<div class="sm:flex sm:items-start">
+					<div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+						<h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-headline">Credits</h3>
+						<div class="mt-2">
+							<p class="text-sm text-gray-500">
+								Webbsida + backend: <a
+									href="https://discord.com/users/347818082787393539"
+									target="_blank"
+									class="text-blue-500">4lve</a
+								>
+								<br />
+								Hosting:
+								<a
+									href="https://discord.com/users/237179694154383361"
+									target="_blank"
+									class="text-blue-500">Smurre</a
+								>
+								<br />
+								Koppling till Stamsites pixel display:
+								<a
+									href="https://discord.com/users/286753300899168256"
+									target="_blank"
+									class="text-blue-500">WikiRaze</a
+								>
+							</p>
+						</div>
+						<h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" id="modal-headline">
+							Instriktioner
+						</h3>
+						<div class="mt-2">
+							<p class="text-sm text-gray-500">
+								1. Logga in med Twitch
+								<br />
+								2. Köp pixlar när Stamsite är live med kanalpoäng
+								<br />
+								3. Välj en färg och klicka på en pixel för att sätta ut den
+							</p>
+							<h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" id="modal-headline">
+								Varning
+							</h3>
+							<p class="text-sm text-red-500">Oläpliga ritningar kan få dig bannad</p>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+				<button
+					type="button"
+					class="mt-3 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+					on:click={() => (creditsOpen = false)}
+				>
+					Stäng
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <div
 	class="flex justify-center w-screen h-[calc(100svh-56px)] overflow-hidden"
 	bind:this={pixelBoard}
 >
+	<button
+		on:click={() => (creditsOpen = true)}
+		class="top-[65px] right-2 absolute text-white font-bold px-3 py-1 bg-blue-600 rounded hover:bg-blue-700"
+		>i</button
+	>
 	<div class="p-2 pb-1 bg-gray-700 rounded-md absolute bottom-5 z-20">
 		{#each colors as color}
 			<button
@@ -173,8 +258,8 @@
 						on:mouseout={onBlur}
 						on:blur={onBlur}
 						id="{x},{y}"
-						style="background-color: {selectedPixels.get(`${x},${y}`) ?? 'transparent'}"
-						class="w-3 h-3 border-[1px] border-black {x !== 0 && 'border-l-0'} {y !== 0 &&
+						style="background-color: {selectedPixels.get(`${x},${y}`) ?? 'black'}"
+						class="w-3 h-3 border-[1px] border-[#444] {x !== 0 && 'border-l-0'} {y !== 0 &&
 							'border-t-0'}"
 					/>
 				{/each}
@@ -185,7 +270,7 @@
 
 <style>
 	:global(html) {
-		background-color: #fff;
+		background-color: #333;
 		overflow: hidden;
 	}
 </style>

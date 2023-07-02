@@ -61,7 +61,7 @@
 
 	type Color = string;
 
-	let selectedPixels = new Map<string, Color>();
+	let Pixels = new Map<string, Color>();
 
 	let selectedColor = colors[0];
 
@@ -74,7 +74,7 @@
 	function onBlur(e: MouseEvent | FocusEvent) {
 		if (window.matchMedia('(pointer: coarse)').matches) return;
 		const target = e.target as HTMLButtonElement;
-		target.style.backgroundColor = selectedPixels.get(target.id) ?? 'black';
+		target.style.backgroundColor = Pixels.get(target.id) ?? 'black';
 	}
 
 	function setPixel(x: number, y: number) {
@@ -103,15 +103,15 @@
 	let balance = 0;
 
 	socket.on('setPixel', (pixel) => {
-		selectedPixels.set(`${pixel.x},${pixel.y}`, pixel.color as Color);
-		selectedPixels = selectedPixels;
+		Pixels.set(`${pixel.x},${pixel.y}`, pixel.color as Color);
+		Pixels = Pixels;
 	});
 
 	socket.on('setBoard', (board) => {
 		for (const [key, value] of Object.entries(board)) {
-			selectedPixels.set(key, value as Color);
+			Pixels.set(key, value as Color);
 		}
-		selectedPixels = selectedPixels;
+		Pixels = Pixels;
 	});
 
 	socket.on('balance', (newBalance) => {
@@ -256,7 +256,7 @@
 						on:mouseout={onBlur}
 						on:blur={onBlur}
 						id="{x},{y}"
-						style="background-color: {selectedPixels.get(`${x},${y}`) ?? 'black'}"
+						style="background-color: {Pixels.get(`${x},${y}`) ?? 'black'}"
 						class="w-3 h-3 border-[1px] border-[#444] {x !== 0 && 'border-l-0'} {y !== 0 &&
 							'border-t-0'}"
 					/>

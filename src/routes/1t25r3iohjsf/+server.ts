@@ -1,7 +1,11 @@
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+declare namespace global {
+	let prisma: PrismaClient;
+}
+
+const prisma = global.prisma;
 
 const inputSchema = z.object({
 	username: z.string(),

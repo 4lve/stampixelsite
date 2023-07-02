@@ -5,11 +5,22 @@ import axios from 'axios';
 import type { DefaultEventsMap } from 'socket.io/dist/typed-events';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+import type { getSession, SvelteKitAuthConfig } from '@auth/sveltekit';
 dotenv.config();
 
-const prisma = new PrismaClient();
+declare namespace global {
+	let prisma: PrismaClient;
+	let getSes: typeof getSession;
+	let authConfig: SvelteKitAuthConfig;
+}
+
+global.prisma = new PrismaClient();
+
+const prisma = global.prisma;
 
 await prisma.$connect();
+
+let shouldLoadPixels = false;
 
 export default async function injectSocketIO(server: http.Server) {
 	const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>(
@@ -30,8 +41,14 @@ export default async function injectSocketIO(server: http.Server) {
 
 	const Pixels = new Map<string, string>();
 
+	if (!shouldLoadPixels) console.warn('\x1b[31m[ ⚠ ] Pixels restore disabled!\x1b[0m');
+
 	for (let x = 0; x < 64; x++) {
 		for (let y = 0; y < 64; y++) {
+			if (!shouldLoadPixels) {
+				Pixels.set(`${x},${y}`, '#000000');
+				continue;
+			}
 			(async () => {
 				console.log(`Loading pixel ${x},${y}`);
 				const pixel = await prisma.pixel.findFirst({
@@ -61,30 +78,37 @@ export default async function injectSocketIO(server: http.Server) {
 	io.on('connection', async (socket) => {
 		socket.data.session = null;
 
-		axios
-			.get('http://localhost:5173/getSession', {
-				headers: socket.handshake.headers
-			})
-			.then(async (res) => {
-				socket.data.session = res.data;
-				if (
-					!socket.data.session ||
-					!socket.data.session.user?.email ||
-					!socket.data.session.user?.image ||
-					!socket.data.session.user?.name
-				)
-					return;
+		for (let i = 0; i < 100; i++) {
+			if (global.authConfig) break;
+			console.log('Waiting for authConfig...');
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+		}
 
-				const user = await prisma.user.findUnique({
-					where: {
-						email: socket.data.session.user.email
-					}
-				});
+		const fakeReq = new Request(socket.handshake.headers.referer!, {
+			headers: Object.entries(socket.handshake.headers) as any
+		});
 
-				if (!user) return;
+		socket.data.session = await global.getSes(fakeReq, global.authConfig);
 
-				socket.emit('balance', user.pixels);
+		(async () => {
+			if (
+				!socket.data.session ||
+				!socket.data.session.user?.email ||
+				!socket.data.session.user?.image ||
+				!socket.data.session.user?.name
+			)
+				return;
+
+			const user = await prisma.user.findUnique({
+				where: {
+					email: socket.data.session.user.email
+				}
 			});
+
+			if (!user) return;
+
+			socket.emit('balance', user.pixels);
+		})();
 
 		socket.emit('setBoard', Object.fromEntries(Pixels));
 

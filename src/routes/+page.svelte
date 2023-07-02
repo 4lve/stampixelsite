@@ -30,10 +30,8 @@
 					k: transform.k
 				});
 			})
-			.filter(function filter(event) {
-				return (
-					(!event.ctrlKey || event.type === 'wheel') && (event.button === 0 || event.button === 2)
-				);
+			.filter(function defaultFilter(event) {
+				return (!event.ctrlKey || event.type === 'wheel') && (!event.button || event.button === 2);
 			});
 
 		div.on('contextmenu', function (event) {
@@ -272,5 +270,6 @@
 	:global(html) {
 		background-color: #333;
 		overflow: hidden;
+		position: relative;
 	}
 </style>
